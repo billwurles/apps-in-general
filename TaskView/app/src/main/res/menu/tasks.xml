@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/new_task"
+        android:title = "@string/menu_new_task"
+        android:icon="@drawable/ic_today_white_24dp"
+        app:showAsAction="ifRoom"
+        android:orderInCategory="1"/>
+
+    <item android:id="@+id/menu_users"
+        android:title = "@string/menu_users"
+        android:icon="@drawable/ic_group_white_24dp"
+        app:showAsAction="ifRoom"
+        android:orderInCategory="2"/>
+
+    <item android:id="@+id/menu_new_user"
+        android:icon="@drawable/ic_person_add_white_24dp"
+        android:title="@string/menu_new_user"
+        app:showAsAction="ifRoom"
+        android:orderInCategory="3"/>
+</menu>

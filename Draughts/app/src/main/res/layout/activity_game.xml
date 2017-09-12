@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="4dp"
+    android:columnCount="2"
+    tools:context="wburles.uk.draughts.GameActivity">
+
+    <GridView android:id="@+id/board_grid"
+        android:numColumns="8"
+        android:layout_width="match_parent"
+        android:layout_height="400dp"
+        android:gravity="center_horizontal"/>
+
+    <LinearLayout android:id="@+id/linear_layout_1"
+        android:layout_below="@+id/board_grid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:showDividers="middle">
+
+        <TextView android:id="@+id/text_player_one"
+            android:text="Player 1"
+            android:gravity="center_horizontal"
+            android:layout_weight="1"
+            android:textSize="14pt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <TextView android:id="@+id/text_player_two"
+            android:text="Player 2"
+            android:gravity="center_horizontal"
+            android:layout_weight="1"
+            android:textSize="14pt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        </LinearLayout>
+</LinearLayout>

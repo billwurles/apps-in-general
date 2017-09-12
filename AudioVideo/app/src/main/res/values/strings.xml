@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">AudioVideo</string>
+    <string name="action_settings">Settings</string>
+    <string-array name="audio_sources_array">
+        <item>URL</item>
+        <item>File</item>
+        <item>Local</item>
+    </string-array>
+</resources>

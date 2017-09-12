@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1CA600</color>
+    <color name="colorPrimaryDark">#0D4F00</color>
+    <color name="colorAccent">#0086AB</color>
+    <color name="cell_color">#00C8FF</color>
+    <color name="grid_background">#347182</color>
+</resources>

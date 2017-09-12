@@ -1,0 +1,862 @@
+when moving white piece to top left square it crashes when trying to turn it into king
+
+'movesExtra' class takes all possible moves
+
+settings:
+    crashes immediately
+    armenian variant
+    all white cells
+
+implement turn taking
+
+
+
+
+
+
+
+
+functional requirements:
+FR2
+	- Allow the user to specify which piece to move & which square
+	— If move is legal then chosen piece should be moved, if not display error
+	- Take into account mandatory capture rule
+FR3
+	- Captured pieces removed from board soon as captured
+
+
+FR9
+	- View a league table:
+		- At the end of a game between two registered players, winner gets a single point
+		- No points for losing, winning against non registered player, or restarting a game before anyone has won
+	- League table is persistent
+	- Displays all registered users, along with total points, in order of points
+FR10
+	- Create settings screen
+		- Diagonal capture rule
+		- Squares are two colours or one
+	- If settings change before any moves made, then rules should apply
+
+
+
+
+FR1
+	- Start new game
+	- Display board with appropriate pieces
+	- Start a new game at any point
+FR4
+	- Pieces become kings when they reach the end
+	- Kings moved like kings
+FR6
+	- Game should be persistent
+FR7
+	- Allow users to register themselves
+FR8
+	- Allow users to select themselves from the list of users
+
+
+
+
+
+
+
+
+
+
+	package wburles.uk.draughts;
+
+    import android.content.Context;
+    import android.content.Intent;
+    import android.graphics.Color;
+    import android.support.v7.app.AppCompatActivity;
+    import android.os.Bundle;
+    import android.util.Log;
+    import android.view.View;
+    import android.widget.AdapterView;
+    import android.widget.GridView;
+    import android.widget.TextView;
+    import android.widget.Toast;
+
+    import java.util.ArrayList;
+
+    import wburles.uk.draughts.MySQL.GameDAO;
+
+    public class GameActivity extends AppCompatActivity {
+        private static GameBoard game;
+        private GamePiece[] board;
+        private GameDAO gameDatabase;
+        private static GridView boardGrid;
+        private final static GamePiece EMPTY_CELL = new GamePiece(0);
+        private static BoardAdapter boardAdapter;
+        private int selectedPos = -1;
+        private int dirs;
+        private int turn=GameBoard.TEAM_WHITE;
+
+        private TextView playerOne;
+        private TextView playerTwo;
+        private TextView scoreP1;
+        private TextView scoreP2;
+
+        @Override
+        protected void onDestroy() {
+            gameDatabase.addBoard(getApplicationContext(), game);
+            gameDatabase.setExists(getApplicationContext());
+            Log.d("Draughts","This motherfucker "+gameDatabase.gameExists(getApplicationContext())+" exists");
+            super.onDestroy();
+        }
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.activity_game);
+
+            gameDatabase = new GameDAO();
+            boolean[] settings = gameDatabase.getSettings(getApplicationContext());
+
+            playerOne = (TextView) findViewById(R.id.text_player_one);
+            playerTwo = (TextView) findViewById(R.id.text_player_two);
+
+            switch(getIntent().getExtras().getInt("button")) {
+                case 0: // new game
+                    ArrayList<User> players = getIntent().getParcelableArrayListExtra("players");
+                    Log.d("Draughts", "THE SUPERCALIFRAGILISTIC SAYS: " + players.get(0) + " " + players.get(1));
+                    game = new GameBoard(getApplicationContext(), settings[0],
+                            players.get(0).getUser(), players.get(1).getUser());
+                    game.setEmpty(EMPTY_CELL);
+                    game.setUpBoard();
+                    playerOne.setText(players.get(0).getUser());
+                    playerTwo.setText(players.get(1).getUser());
+                    break;
+                case 1: // load game
+                    game = gameDatabase.getGame(getApplicationContext());
+                    game.setEmpty(EMPTY_CELL);
+                    String[] player = game.getPlayers();
+                    playerOne.setText(player[0]);
+                    playerTwo.setText(player[1]);
+                    break;
+            }
+
+            playerTwo.setBackgroundColor(Color.GREEN);
+
+            scoreP1 = (TextView) findViewById(R.id.points_player_one);
+            scoreP2 = (TextView) findViewById(R.id.points_player_two);
+            scoreP1.setText(String.valueOf(0));
+            scoreP2.setText(String.valueOf(0));
+
+            board = game.getBoard();
+            boardGrid = (GridView) findViewById(R.id.board_grid);
+            boardAdapter = new BoardAdapter(this, board, EMPTY_CELL, settings[1]);
+            boardGrid.setAdapter(boardAdapter);
+            boardGrid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    GamePiece item = board[position];
+                    if (selectedPos != -1) {
+                        if (position == selectedPos) { // if click the same spot then deselect
+                            game.getBoard()[selectedPos].select();
+                            game.deselectAll();
+                            selectedPos = -1;
+                            boardAdapter.notifyDataSetChanged();
+                        } else { // attempt to move selected piece
+                            if (game.hasMoves(selectedPos)) {
+                                game.takePiece(selectedPos, position, dirs, getApplicationContext());
+                            } else {
+                                game.move(selectedPos, position);
+                            }
+                            game.deselectAll();
+
+                            if(game.hasMoves(position)){
+                                selectedPos = position;
+                                item.select();
+                            } else{
+                                selectedPos = -1;
+                            }
+
+
+                            selectedPos = position;
+                            while (game.hasMoves(selectedPos)) {
+                                dirs = 0;//game.findMoves(position);
+                                switch (dirs) {
+                                    case 1:
+                                        board[position - 8].makePossibility();
+                                        break;
+                                    case 2:
+                                        board[position + 8].makePossibility();
+                                        break;
+                                    case 3:
+                                        board[position + 1].makePossibility();
+                                        break;
+                                    case 4:
+                                        board[position - 1].makePossibility();
+                                        break;
+                                }
+
+                            }
+                            if (game.gameOver(1)) {
+                                Toast.makeText(getApplicationContext(), "GAMEOVER", Toast.LENGTH_LONG).show();
+                                //gameDatabase.addPoint(getBaseContext(),players.get(0));
+                                //gameDatabase.setExists(getBaseContext(),false);
+                            }
+                        }
+                    } else if (item != EMPTY_CELL) { // select if click on a piece
+                        //game.findMoves(position);
+                        item.select();
+                        selectedPos = position;
+                        boardAdapter.notifyDataSetChanged();
+
+                        game.hasMoves(position);
+
+                        dirs = 0;//game.findMoves(position);
+                        switch (dirs) {
+                            case 1:
+                                board[position - 8].makePossibility();
+                                break;
+                            case 2:
+                                board[position + 8].makePossibility();
+                                break;
+                            case 3:
+                                board[position + 1].makePossibility();
+                                break;
+                            case 4:
+                                board[position - 1].makePossibility();
+                                break;
+                        }
+
+                    }
+                }
+            });
+            boardGrid.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+
+                @Override
+                public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                    //Log.d("Draughts", "there are many moves: " + game.findMoves(position, 0, position, board));
+                    game.movesExtra(position, boardAdapter);
+                    return false;
+                }
+            });
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package wburles.uk.draughts;
+
+import android.content.Context;
+import android.util.Log;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+
+public class GameBoard {
+    public final static int TEAM_BLACK = 1;
+    public final static int TEAM_WHITE = 2;
+    private static GamePiece EMPTY_CELL;
+    String[] players;
+    private GamePiece[] board;
+    private boolean gameType; // true for turkish - false for armenian
+    Context context;
+
+    public GameBoard(Context c, boolean gameType, String playerone, String playertwo) {
+        this.context = c;
+        this.gameType = gameType;
+        this.players = new String[2];
+        players[0] = playerone;
+        players[1] = playertwo;
+        board = new GamePiece[64];
+    }
+
+    public void setEmpty(GamePiece empty){
+        this.EMPTY_CELL = empty;
+        if(board[0]!=null){
+            for(int i = 0; i < board.length; i++){
+                if(board[i].getTeam() == 0){
+                    board[i] = empty;
+                }
+            }
+        }
+    }
+
+    public boolean gameOver(int team){
+        for(GamePiece piece : board){
+            if(piece.getTeam()==notTeam(team)){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void movePiece(int pos1, int pos2) { // pos 1 is first clicked cell, pos 2 is second (one to move piece into)
+        if (pos2 < 8 | pos2 > 54) {
+            board[pos1].setKing(true);
+        }
+        if (pos2 < 0 | pos2 > 63) {
+            Toast.makeText(context, "Piece out of bounds", Toast.LENGTH_SHORT).show();
+        } else {
+            board[pos2] = board[pos1];
+            board[pos1] = EMPTY_CELL;
+        }
+
+    }
+
+    public void movesExtra(int pos, BoardAdapter adapter) {
+        GamePiece[] game = new GamePiece[64];
+        for (int i = 0; i < board.length; i++) {
+            game[i] = board[i];
+        }
+        //int[] move = findMoves(1);
+        int lol = 0;
+        switch (lol) {
+            case 0: // take a piece up
+                movePiece(pos, pos - 8);
+                break;
+            case 1: // take a piece down
+                movePiece(pos, pos + 8);
+                break;
+            case 2: // take a piece right
+                movePiece(pos, pos - 1);
+                break;
+            case 3: // take a piece left
+                movePiece(pos, pos + 1);
+                break;
+        }
+    }
+
+    public void move(int pos1, int pos2) {
+        board[pos1].select();
+        Log.d("Draughts","Moving normally");
+        boolean taken = false;
+        if (board[pos2] == EMPTY_CELL) {
+            if ((pos1 - pos2 == 8 | pos1 - pos2 == -8 | pos1 - pos2 == 1 | pos1 - pos2 == -1)
+                    && board[pos1].isKing()) {
+                movePiece(pos1, pos2);
+                taken = true;
+            } else if ((pos1 - pos2 == 8 | pos1 - pos2 == 1 | pos1 - pos2 == -1)
+                    && board[pos1].getTeam() == TEAM_WHITE) {
+                movePiece(pos1, pos2);
+                taken = true;
+            } else if ((pos1 - pos2 == -8 | pos1 - pos2 == 1 | pos1 - pos2 == -1)
+                    && board[pos1].getTeam() == TEAM_BLACK) {
+                movePiece(pos1, pos2);
+                taken = true;
+            }
+        }
+        if("Hello" == board[3].toString()){
+            if(legalMove(pos1, pos2)){
+                movePiece(pos1, pos2);
+            }
+        }
+
+    }
+
+    public void takePiece(int pos1, int pos2, int dirs, Context context){
+        board[pos1].select();
+        if(legalMove(pos1,pos2)){
+            movePiece(pos1,pos2);
+        }
+    }
+
+    public boolean legalMove(int pos1, int pos2){
+        boolean legal = false;
+
+        switch(pos1 - pos2){
+            case -16: //moving down
+                if(pos1<48){
+                    if ((board[pos1].isKing() | board[pos1].getTeam() == TEAM_BLACK) && board[pos2] == EMPTY_CELL
+                            && checkTeam(board[pos1 + 8].getTeam(), board[pos1].getTeam())) { // take a piece down
+                        legal = true;
+                        board[pos2].makePossibility();
+                        Log.d("Draughts","There is down happennign my son");
+                    }
+                }
+                break;
+            case -2: //moving left
+                int[] left = {0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 47, 56, 57};
+                if(edges(pos1, left)){
+                    if (checkTeam(board[pos1].getTeam(), board[pos2+1].getTeam()) &&
+                            board[pos2] == EMPTY_CELL) {             // take a piece right
+                        legal = true;
+                        board[pos2].makePossibility();
+                        Log.d("Draughts","There is right happening my son");
+                    }
+                }
+                break;
+            case 2: //moving right
+                int[] right = {6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63};
+                if(edges(pos1,right)){
+                    if (checkTeam(board[pos1].getTeam(), board[pos2-1].getTeam()) &&
+                            board[pos2] == EMPTY_CELL) {             // take a piece right
+                        legal = true;
+                        board[pos2].makePossibility();
+                        Log.d("Draughts","There is right happening my son");
+                    }
+                }
+                break;
+            case 16: //moving up
+                if(pos1>15) {
+                    if ((board[pos1].isKing() | board[pos1].getTeam() == TEAM_WHITE) && board[pos2] == EMPTY_CELL
+                            && checkTeam(board[pos1 - 8].getTeam(), board[pos1].getTeam())) { // take a piece up
+                        legal = true;
+                        board[pos2].makePossibility();
+                        Log.d("Draughts","There is up happening my son");
+                    }
+                }
+                break;
+        }
+        return legal;
+    }
+
+    public void makeMove(int player, int pos){
+        ArrayList<GameMove> moves = checkMoves(player,pos);
+        GameMove best;
+        int highest = -1;
+        for(int i = 0; i < moves.size(); i++){
+            if(checkMoves(player,moves.get(i).newPos) != null){
+                int arraySize = checkMoves(player,moves.get(i).newPos).size();
+                if(arraySize>highest){
+                    best = moves.get(i);
+                }
+            }
+
+        }
+    }
+
+    private boolean canTake(int player, int from, int over, int to){
+        if(board[from]==EMPTY_CELL | from < 0 | from > 63 | to < 0 | to > 64 |
+                board[to] != EMPTY_CELL | board[over] == EMPTY_CELL |
+                checkTeam(board[from].getTeam(),player)){
+            return false;
+        }
+        if(!checkTeam(player, board[over].getTeam())){
+            return false;
+        } else {
+            if (!board[from].isKing()) {
+                if (player == TEAM_WHITE && from - to == -16) {
+                    return false;
+                } else if (player == TEAM_BLACK && from - to == 16) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    public boolean canMove(int player, int from, int to){
+        if(board[from]==EMPTY_CELL | from < 0 | from > 63 | to < 0 | to > 64 |
+                board[to] != EMPTY_CELL | checkTeam(board[from].getTeam(),player)){
+            return false;
+        }
+        if(!board[from].isKing()){
+            if(player == TEAM_WHITE && from - to == -16){
+                return false;
+            } else if (player == TEAM_BLACK && from - to ==16){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public ArrayList<GameMove> checkMoves(int player, int pos){
+        ArrayList<GameMove> moves = new ArrayList<>();
+        for(GamePiece piece : board){
+            if(canTake(player,pos,pos+1,pos+2)){
+                moves.add(new GameMove(pos,pos+2));
+            }
+            if(canTake(player,pos,pos-1,pos-2)){
+                moves.add(new GameMove(pos,pos-2));
+            }
+            if(canTake(player,pos,pos+8,pos+16)){
+                moves.add(new GameMove(pos,pos+16));
+            }
+            if(canTake(player,pos,pos-8,pos-16)){
+                moves.add(new GameMove(pos,pos-16));
+            }
+        }
+        if(moves.size()==0){
+            for(GamePiece piece : board){
+                if(canMove(player,pos,pos+1)){
+                    moves.add(new GameMove(pos,pos+1));
+                }
+                if(canMove(player,pos,pos-1)){
+                    moves.add(new GameMove(pos,pos-1));
+                }
+                if(canMove(player,pos,pos+8)){
+                    moves.add(new GameMove(pos,pos+8));
+                }
+                if(canMove(player,pos,pos-8)){
+                    moves.add(new GameMove(pos,pos-8));
+                }
+            }
+        }
+        if(moves.size()==0){
+            return null;
+        }
+        return moves;
+    }
+
+    public boolean hasMoves(int pos) {
+        boolean ok = false;
+        if(pos>7) {
+            if ((board[pos].isKing() | board[pos].getTeam() == TEAM_WHITE) && board[pos - 16] == EMPTY_CELL
+                    && checkTeam(board[pos - 8].getTeam(), board[pos].getTeam())) { // take a piece up
+                ok = true;
+                board[pos-16].makePossibility();
+                Log.d("Draughts","There is up possibility my son");
+            }
+        }
+        if(pos<56){
+            if ((board[pos].isKing() | board[pos].getTeam() == TEAM_BLACK) && board[pos + 16] == EMPTY_CELL
+                    && checkTeam(board[pos + 8].getTeam(), board[pos].getTeam())) { // take a piece down
+                ok = true;
+                board[pos+16].makePossibility();
+                Log.d("Draughts","There is down possibility my son");
+            }
+        }
+        int[] right = {6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63};
+        if(edges(pos,right)){
+            if (checkTeam(board[pos + 1].getTeam(), board[pos].getTeam()) &&
+                    board[pos + 2] == EMPTY_CELL) {             // take a piece right
+                ok = true;
+                board[pos+2].makePossibility();
+                Log.d("Draughts","There is right possibility my son");
+            }
+        }
+        int[] left = {0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 47, 56, 57};
+        if(edges(pos, left)){
+            if (checkTeam(board[pos - 1].getTeam(), board[pos].getTeam()) &&
+                    board[pos - 2] == EMPTY_CELL) {             // take a piece left
+                ok = true;
+                board[pos-2].makePossibility();
+                Log.d("Draughts","There is left possibility my son");
+            }
+        }
+        return ok;
+    }
+
+    public int findMoves(int pos, int count, int originalPos, GamePiece[] game) {
+        int[] dirs = {count, count, count, count}; // up down right left
+        //int[] dirs = new int[4];]
+        int[] left = {0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 47, 56, 57};
+        int[] right = {6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63};
+        try {
+            if ((game[pos].isKing() | game[pos].getTeam() == TEAM_WHITE) && game[pos - 16] == EMPTY_CELL
+                    && checkTeam(game[pos - 8].getTeam(), game[pos].getTeam())) { // take a piece up
+                dirs[0]++;
+                game[pos - 16] = game[pos];
+                game[pos - 8] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+                //dirs[0] = findMoves(pos - 16, dirs[0], originalPos, game);
+            }
+            if ((game[pos].isKing() | game[pos].getTeam() == TEAM_BLACK) && game[pos + 16] == EMPTY_CELL
+                    && checkTeam(game[pos + 8].getTeam(), game[pos].getTeam())) { // take a piece down
+                dirs[1]++;
+                game[pos + 16] = game[pos];
+                game[pos + 8] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+               // dirs[1] = findMoves(pos + 16, dirs[1], originalPos, game);
+            }
+            if (checkTeam(game[pos + 1].getTeam(), game[pos].getTeam()) &&
+                    game[pos + 2] == EMPTY_CELL && edges(pos, right)) {             // take a piece right
+                dirs[2]++;
+                game[pos + 2] = game[pos];
+                game[pos + 1] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+             //   dirs[2] = findMoves(pos + 2, dirs[2], originalPos, game);
+            }
+            if (checkTeam(game[pos - 1].getTeam(), game[pos].getTeam()) &&
+                    game[pos - 2] == EMPTY_CELL && edges(pos, left)) {             // take a piece left
+                dirs[3]++;
+                game[pos - 2] = game[pos];
+                game[pos - 1] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+              //  dirs[3] = findMoves(pos - 2, dirs[3], originalPos, game);
+            }
+        } catch (IndexOutOfBoundsException e) {
+            Log.d("Draughts", "erroeroroerororoerorrrrororrr");
+        }
+
+        int dirPos = -1, high = 0;
+
+        for (int i = 0; i < 4; i++) {
+            if (dirs[i] > high) {
+                high = dirs[i];
+                dirPos = i;
+            }
+        }
+
+        if (originalPos == pos) {
+            return dirPos;
+        }
+        return high;
+    }
+
+    private boolean checkTeam(int team1, int team2) {
+        if(team1!=0){
+            if (team1 != team2) { // true if different team, false if same
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+    private int notTeam(int team) {
+        if (team == TEAM_WHITE) {
+            return TEAM_BLACK;
+        } else if (team == TEAM_BLACK) {
+            return TEAM_WHITE;
+        } else return 0;
+    }
+
+    private boolean edges(int pos, int[] edges) {
+        for (int edge : edges) {
+            if (pos == edge) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void setUpBoard() {
+        for (int i = 0; i < board.length; i++) {
+            if (i < 8) {
+                board[i] = EMPTY_CELL;
+            }
+            if (i > 7 && i < 24) {
+                board[i] = new GamePiece(TEAM_BLACK);
+            }
+            if (i > 23 && i < 40) {
+                board[i] = EMPTY_CELL;
+            }
+            if (i > 39 && i < 56) {
+                board[i] = new GamePiece(TEAM_WHITE);
+            }
+            if (i > 55) {
+                board[i] = EMPTY_CELL;
+            }
+        }
+    }
+
+    public void setUpBoardTwo() {
+        for (int i = 0; i < board.length; i++) {
+            if (i < 8) {
+                board[i] = new GamePiece(TEAM_BLACK);
+                board[i].setKing(true);
+            }
+            if (i > 7 && i < 24) {
+                board[i] = new GamePiece(TEAM_WHITE);
+            }
+            if (i > 23 && i < 40) {
+                board[i] = new GamePiece(TEAM_BLACK);
+            }
+            if (i > 39 && i < 56) {
+                board[i] = new GamePiece(TEAM_WHITE);
+            }
+            if (i > 55) {
+                board[i] = new GamePiece(TEAM_BLACK);
+            }
+        }
+    }
+
+    public void setUpBoardThree() {
+        for (int i = 0; i < board.length; i++) {
+            board[i] = EMPTY_CELL;
+        }
+        board[27] = new GamePiece(TEAM_BLACK);
+        board[43] = new GamePiece(TEAM_WHITE);
+    }
+
+    public GamePiece getPiece(int pos) {
+        return board[pos];
+    }
+    public GamePiece[] getBoard() {
+        return board;
+    }
+    public void deselectAll(){
+        for(int i = 0; i < board.length; i++){
+            board[i].notPossibility();
+        }
+    }
+    public String[] getPlayers(){return players;}
+    public void setBoard(GamePiece[] board) {
+        this.board = board;
+    }
+}
+
+public void movesExtra(int pos, BoardAdapter adapter) {
+        GamePiece[] game = new GamePiece[64];
+        for (int i = 0; i < board.length; i++) {
+            game[i] = board[i];
+        }
+        //int[] move = findMoves(1);
+        int lol = 0;
+        switch (lol) {
+            case 0: // take a piece up
+                movePiece(pos, pos - 8);
+                break;
+            case 1: // take a piece down
+                movePiece(pos, pos + 8);
+                break;
+            case 2: // take a piece right
+                movePiece(pos, pos - 1);
+                break;
+            case 3: // take a piece left
+                movePiece(pos, pos + 1);
+                break;
+        }
+    }
+
+
+
+    public void setUpBoardTwo() {
+        for (int i = 0; i < board.length; i++) {
+            if (i < 8) {
+                board[i] = new GamePiece(TEAM_BLACK);
+                board[i].setKing(true);
+            }
+            if (i > 7 && i < 24) {
+                board[i] = new GamePiece(TEAM_WHITE);
+            }
+            if (i > 23 && i < 40) {
+                board[i] = new GamePiece(TEAM_BLACK);
+            }
+            if (i > 39 && i < 56) {
+                board[i] = new GamePiece(TEAM_WHITE);
+            }
+            if (i > 55) {
+                board[i] = new GamePiece(TEAM_BLACK);
+            }
+        }
+    }
+
+    public void setUpBoardThree() {
+        for (int i = 0; i < board.length; i++) {
+            board[i] = EMPTY_CELL;
+        }
+        board[27] = new GamePiece(TEAM_BLACK);
+        board[43] = new GamePiece(TEAM_WHITE);
+    }
+
+
+
+
+
+    public int findMoves(int pos, int count, int originalPos, GamePiece[] game) {
+        int[] dirs = {count, count, count, count}; // up down right left
+        //int[] dirs = new int[4];]
+        int[] left = {0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 47, 56, 57};
+        int[] right = {6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63};
+        try {
+            if ((game[pos].isKing() | game[pos].getTeam() == TEAM_WHITE) && game[pos - 16] == EMPTY_CELL
+                    && checkTeam(game[pos - 8].getTeam(), game[pos].getTeam())) { // take a piece up
+                dirs[0]++;
+                game[pos - 16] = game[pos];
+                game[pos - 8] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+                //dirs[0] = findMoves(pos - 16, dirs[0], originalPos, game);
+            }
+            if ((game[pos].isKing() | game[pos].getTeam() == TEAM_BLACK) && game[pos + 16] == EMPTY_CELL
+                    && checkTeam(game[pos + 8].getTeam(), game[pos].getTeam())) { // take a piece down
+                dirs[1]++;
+                game[pos + 16] = game[pos];
+                game[pos + 8] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+               // dirs[1] = findMoves(pos + 16, dirs[1], originalPos, game);
+            }
+            if (checkTeam(game[pos + 1].getTeam(), game[pos].getTeam()) &&
+                    game[pos + 2] == EMPTY_CELL && edges(pos, right)) {             // take a piece right
+                dirs[2]++;
+                game[pos + 2] = game[pos];
+                game[pos + 1] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+             //   dirs[2] = findMoves(pos + 2, dirs[2], originalPos, game);
+            }
+            if (checkTeam(game[pos - 1].getTeam(), game[pos].getTeam()) &&
+                    game[pos - 2] == EMPTY_CELL && edges(pos, left)) {             // take a piece left
+                dirs[3]++;
+                game[pos - 2] = game[pos];
+                game[pos - 1] = EMPTY_CELL;
+                game[pos] = EMPTY_CELL;
+              //  dirs[3] = findMoves(pos - 2, dirs[3], originalPos, game);
+            }
+        } catch (IndexOutOfBoundsException e) {
+            Log.d("Draughts", "erroeroroerororoerorrrrororrr");
+        }
+
+        int dirPos = -1, high = 0;
+
+        for (int i = 0; i < 4; i++) {
+            if (dirs[i] > high) {
+                high = dirs[i];
+                dirPos = i;
+            }
+        }
+
+        if (originalPos == pos) {
+            return dirPos;
+        }
+        return high;
+    }
+
+
+
+
+
+
+public boolean hasMoves(int pos) {
+        boolean ok = false;
+        if(pos>7) {
+            if ((board[pos].isKing() | board[pos].getTeam() == TEAM_WHITE) && board[pos - 16] == EMPTY_CELL
+                    && checkTeam(board[pos - 8].getTeam(), board[pos].getTeam())) { // take a piece up
+                ok = true;
+                board[pos-16].makePossibility();
+                Log.d("Draughts","There is up possibility my son");
+            }
+        }
+        if(pos<56){
+            if ((board[pos].isKing() | board[pos].getTeam() == TEAM_BLACK) && board[pos + 16] == EMPTY_CELL
+                    && checkTeam(board[pos + 8].getTeam(), board[pos].getTeam())) { // take a piece down
+                ok = true;
+                board[pos+16].makePossibility();
+                Log.d("Draughts","There is down possibility my son");
+            }
+        }
+        int[] right = {6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63};
+        if(edges(pos,right)){
+            if (checkTeam(board[pos + 1].getTeam(), board[pos].getTeam()) &&
+                    board[pos + 2] == EMPTY_CELL) {             // take a piece right
+                ok = true;
+                board[pos+2].makePossibility();
+                Log.d("Draughts","There is right possibility my son");
+            }
+        }
+        int[] left = {0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 47, 56, 57};
+        if(edges(pos, left)){
+            if (checkTeam(board[pos - 1].getTeam(), board[pos].getTeam()) &&
+                    board[pos - 2] == EMPTY_CELL) {             // take a piece left
+                ok = true;
+                board[pos-2].makePossibility();
+                Log.d("Draughts","There is left possibility my son");
+            }
+        }
+        return ok;
+    }
