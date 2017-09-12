@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">SQLite</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_add_bird">AddBirdActivity</string>
+    <string name="binomial_name">Binomial Name</string>
+    <string name="common_name">Common Name</string>
+    <string name="action_add">ADD</string>
+    <string name="action_save">SAVE</string>
+</resources>
