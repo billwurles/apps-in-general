@@ -1,0 +1,20 @@
+ Volume in drive H is iSCSI-Student
+ Volume Serial Number is F46D-1AA6
+
+ Directory of H:\Modern Computing
+
+23/10/2014  13:27    <DIR>          .
+23/10/2014  13:27    <DIR>          ..
+23/09/2014  14:52               105 Area and perimeter of a square.py
+23/10/2014  13:27                 0 dir.txt
+23/09/2014  14:42               119 First Program!.py
+21/10/2014  15:41    <DIR>          Functions
+14/10/2014  15:18    <DIR>          Logic Gates
+03/10/2014  16:04    <DIR>          Loops
+23/09/2014  14:48                76 M to KM converter.py
+10/10/2014  16:03    <DIR>          Strings
+23/09/2014  14:59               160 Taxes.py
+23/09/2014  15:08               202 Username.py
+30/09/2014  16:08             3,254 Week  2!.py
+               7 File(s)          3,916 bytes
+               6 Dir(s)   1,082,793,984 bytes free
